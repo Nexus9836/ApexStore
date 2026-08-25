@@ -34,21 +34,21 @@
     .nav-inner { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
     h1 { font-size: 1.35rem; font-weight: 800; color: var(--primary); white-space: nowrap; }
 
-    /* Sticky User Top Controls (Search + Categories) */
+    /* Sticky User Top Controls */
     .user-sticky-controls { position: sticky; top: 61px; z-index: 35; background: var(--bg); padding: 0.85rem 0 0.5rem; border-bottom: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .search-box-wrapper { position: relative; margin-bottom: 0.65rem; }
     .search-input { width: 100%; padding: 0.65rem 1rem 0.65rem 2.5rem; border-radius: 9999px; border: 1px solid var(--border); background: #fff; font-size: 0.9rem; }
     .search-input:focus { outline: none; border-color: var(--primary); }
     .search-icon { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; }
 
-    /* Category Filter Pills (Horizontal Scrolling) */
+    /* Category Filter Pills */
     .filter-bar { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.35rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .filter-bar::-webkit-scrollbar { display: none; }
     .filter-btn { padding: 0.4rem 0.95rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: 0.15s; white-space: nowrap; flex-shrink: 0; }
     .filter-btn:hover { border-color: var(--primary); color: var(--primary); }
     .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-    /* Fixed Bottom Action Bar (Left: Orders, Right: Wishlist) */
+    /* Fixed Bottom Action Bar */
     .fixed-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); border-top: 1px solid var(--border); padding: 0.65rem 1rem; z-index: 50; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); }
     .bottom-btn { padding: 0.6rem 1.15rem; font-size: 0.85rem; font-weight: 700; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 
@@ -130,7 +130,7 @@
     </div>
   </header>
 
-  <!-- Sticky Top Controls for User View (Search + Category Filter) -->
+  <!-- Sticky Top Controls for User View -->
   <div id="userStickyControls" class="user-sticky-controls" style="display: none;">
     <div class="container">
       <div class="search-box-wrapper">
@@ -143,7 +143,7 @@
 
   <main class="container" id="mainContainer" style="padding-top: 1rem; padding-bottom: 5.5rem;"></main>
 
-  <!-- Fixed Bottom Bar for Users (Left: My Orders, Right: Wishlist) -->
+  <!-- Fixed Bottom Bar for Users -->
   <div id="userFixedBottomBar" class="fixed-bottom-bar" style="display: none;">
     <button class="btn btn-secondary bottom-btn" onclick="openUserOrdersModal()">
        My Orders (<span id="bottomOrderCount">0</span>)
@@ -153,28 +153,56 @@
     </button>
   </div>
 
-  <!-- Login Modal -->
-  <div id="loginModal" class="modal-overlay">
+  <!-- Auth Modal (Login / Signup with OTP) -->
+  <div id="authModal" class="modal-overlay">
     <div class="modal-card">
-      <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem;">Sign In</h2>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">Enter username and password (123456)</p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 id="authModalTitle" style="font-size: 1.2rem; font-weight: 800; margin:0;">Sign In</h2>
+        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.6rem;" onclick="closeAuthModal()"></button>
+      </div>
 
+      <!-- Login Form -->
       <form id="loginForm">
-        <div class="form-group" style="margin-bottom: 0.75rem;">
-          <label>Username</label>
-          <input type="text" id="loginUser" placeholder="admin / user / any name" required autocomplete="off">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="loginEmail" placeholder="e.g. name@example.com" required autocomplete="off">
         </div>
         <div class="form-group" style="margin-bottom: 1.25rem;">
           <label>Password</label>
-          <input type="password" id="loginPassword" placeholder="123456" required>
+          <input type="password" id="loginPassword" placeholder="••••••••" required>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Log In</button>
+        <button type="submit" class="btn btn-primary" id="loginSubmitBtn" style="width: 100%;">Log In</button>
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem;">
+          Don't have an account? <a href="javascript:void(0)" onclick="switchAuthMode('register')" style="color:var(--primary); font-weight:700;">Register with OTP</a>
+        </div>
       </form>
 
-      <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
-        <strong>Admin Login:</strong> admin | 123456<br>
-        <strong>User Login:</strong> user (or your name) | 123456
-      </div>
+      <!-- Register Form -->
+      <form id="registerForm" style="display: none;">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="regName" placeholder="e.g. Rahul Sharma" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="email" id="regEmail" placeholder="e.g. rahul@example.com" required autocomplete="off">
+            <button type="button" class="btn btn-secondary" id="btnSendOtp" style="padding: 0.5rem 0.85rem; font-size: 0.8rem; white-space: nowrap;" onclick="handleSendOtp()">Get OTP</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>6-Digit Email OTP</label>
+          <input type="text" id="regOtp" placeholder="Enter OTP received in email" required maxlength="6" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label>Set Password</label>
+          <input type="password" id="regPassword" placeholder="Create a strong password" required minlength="4">
+        </div>
+        <button type="submit" class="btn btn-primary" id="regSubmitBtn" style="width: 100%;">Verify OTP & Create Account</button>
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem;">
+          Already have an account? <a href="javascript:void(0)" onclick="switchAuthMode('login')" style="color:var(--primary); font-weight:700;">Sign In</a>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -214,34 +242,59 @@
 
   <script>
     // --------------------------------------------------------------------------
-    // 1. STATE & STORAGE INITIALIZATION
+    // 1. CONFIGURATION & STATE INITIALIZATION
     // --------------------------------------------------------------------------
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyHLTs6aFsorbUO6ox9QhfSE0IkCBdyEg43B_DjZ4Z178-AlmmHEuBIVG_AC0_A0l6Zaw/exec";
+
     let currentUser = JSON.parse(localStorage.getItem('apex_auth_user')) || null;
     let products = [];
     let orders = [];
-    let wishlist = [];
+    let wishlist = JSON.parse(localStorage.getItem('my_wishlist')) || [];
     let selectedCategory = "ALL";
     let adminSelectedStatus = "ALL";
     let searchQuery = "";
     let adminActiveTab = "inventory";
     let deleteTargetId = null;
 
-    try {
-      products = JSON.parse(localStorage.getItem('my_products')) || [];
-      orders = JSON.parse(localStorage.getItem('my_orders')) || [];
-      wishlist = JSON.parse(localStorage.getItem('my_wishlist')) || [];
-    } catch (e) {
-      products = []; orders = []; wishlist = [];
-    }
-
     const FALLBACK_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2250%22%20height%3D%2250%22%20viewBox%3D%220%200%2050%2050%22%3E%3Crect%20fill%3D%22%23e2e8f0%22%20width%3D%2250%22%20height%3D%2250%22%2F%3E%3Ctext%20fill%3D%22%2394a3b8%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E";
 
     // --------------------------------------------------------------------------
-    // 2. DOM NODES & AUTHENTICATION
+    // 2. GOOGLE APPS SCRIPT API LAYER
+    // --------------------------------------------------------------------------
+    const GAS = {
+      async get(collection) {
+        try {
+          const res = await fetch(`${APPS_SCRIPT_URL}?action=getAll&collection=${collection}`);
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        } catch (e) {
+          console.warn("GAS Get Error:", e);
+          return [];
+        }
+      },
+      async post(payload) {
+        try {
+          const res = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          });
+          return await res.json();
+        } catch (e) {
+          console.warn("GAS Post Error:", e);
+          return { error: "Network Error" };
+        }
+      }
+    };
+
+    // --------------------------------------------------------------------------
+    // 3. DOM NODES & AUTHENTICATION
     // --------------------------------------------------------------------------
     const authNavSlot = document.getElementById('authNavSlot');
-    const loginModal = document.getElementById('loginModal');
+    const authModal = document.getElementById('authModal');
+    const authModalTitle = document.getElementById('authModalTitle');
     const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
     const wishlistModal = document.getElementById('wishlistModal');
     const userOrdersModal = document.getElementById('userOrdersModal');
     const mainContainer = document.getElementById('mainContainer');
@@ -253,14 +306,14 @@
     const bottomOrderCount = document.getElementById('bottomOrderCount');
 
     function renderNav() {
-      const isUser = !currentUser || currentUser.role === 'user';
+      const isUser = !currentUser || currentUser.role !== 'admin';
       userStickyControls.style.display = isUser ? 'block' : 'none';
       userFixedBottomBar.style.display = isUser ? 'flex' : 'none';
 
       if (currentUser) {
         if (currentUser.role === 'admin') {
           authNavSlot.innerHTML = `
-            <span class="badge badge-role"> <strong>Admin</strong></span>
+            <span class="badge badge-role"> <strong>Admin</strong> (${escapeHtml(currentUser.name)})</span>
             <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="logout()">Logout</button>
           `;
         } else {
@@ -273,41 +326,127 @@
       } else {
         updateBottomBarCounts();
         authNavSlot.innerHTML = `
-          <button class="btn btn-primary" style="padding: 0.45rem 1rem;" onclick="openLoginModal()">Login</button>
+          <button class="btn btn-primary" style="padding: 0.45rem 1rem;" onclick="openAuthModal('login')">Login / Sign Up</button>
         `;
       }
     }
 
     function updateBottomBarCounts() {
       const cartCount = wishlist.reduce((acc, curr) => acc + curr.quantity, 0);
-      const userOrderCount = currentUser ? orders.filter(o => o.customerName === currentUser.name).length : 0;
+      const userOrderCount = currentUser ? orders.filter(o => o.email === currentUser.email || o.customerName === currentUser.name).length : 0;
       bottomWishCount.textContent = cartCount;
       bottomOrderCount.textContent = userOrderCount;
     }
 
-    function openLoginModal() { loginModal.classList.add('open'); }
-    function closeLoginModal() { loginModal.classList.remove('open'); loginForm.reset(); }
+    function openAuthModal(mode = 'login') {
+      switchAuthMode(mode);
+      authModal.classList.add('open');
+    }
 
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const userTxt = document.getElementById('loginUser').value.trim().toLowerCase();
-      const pwdTxt = document.getElementById('loginPassword').value.trim();
+    function closeAuthModal() {
+      authModal.classList.remove('open');
+      loginForm.reset();
+      registerForm.reset();
+    }
 
-      if (pwdTxt !== "123456") {
-        alert("Incorrect password! Password is 123456 for all accounts.");
+    function switchAuthMode(mode) {
+      if (mode === 'login') {
+        authModalTitle.textContent = "Sign In";
+        loginForm.style.display = "block";
+        registerForm.style.display = "none";
+      } else {
+        authModalTitle.textContent = "Create Account";
+        loginForm.style.display = "none";
+        registerForm.style.display = "block";
+      }
+    }
+
+    // Handle Send OTP
+    window.handleSendOtp = async function() {
+      const email = document.getElementById('regEmail').value.trim();
+      const btn = document.getElementById('btnSendOtp');
+      if (!email) {
+        alert("Please enter a valid email address first!");
         return;
       }
 
-      if (userTxt === "admin") {
-        currentUser = { role: "admin", name: "Admin" };
-      } else {
-        currentUser = { role: "user", name: userTxt || "User" };
-      }
+      btn.disabled = true;
+      btn.textContent = "Sending...";
 
-      localStorage.setItem('apex_auth_user', JSON.stringify(currentUser));
-      closeLoginModal();
-      renderNav();
-      renderMainView();
+      const res = await GAS.post({
+        action: "sendOtp",
+        data: { email }
+      });
+
+      btn.disabled = false;
+      btn.textContent = "Resend OTP";
+
+      if (res.success) {
+        alert("OTP code has been sent to " + email + ". Check your Inbox or Spam folder.");
+      } else {
+        alert(res.error || "Failed to send OTP.");
+      }
+    };
+
+    // Login Form Submit
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = "Authenticating...";
+
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+
+      const res = await GAS.post({
+        action: "login",
+        data: { email, password }
+      });
+
+      btn.disabled = false;
+      btn.textContent = "Log In";
+
+      if (res.success) {
+        currentUser = res.user;
+        localStorage.setItem('apex_auth_user', JSON.stringify(currentUser));
+        closeAuthModal();
+        renderNav();
+        await syncDataAndRender();
+      } else {
+        alert(res.error || "Login Failed.");
+      }
+    });
+
+    // Register Form Submit
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('regSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = "Verifying OTP & Creating Account...";
+
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const otp = document.getElementById('regOtp').value.trim();
+      const password = document.getElementById('regPassword').value.trim();
+
+      const res = await GAS.post({
+        action: "register",
+        data: { name, email, otp, password }
+      });
+
+      btn.disabled = false;
+      btn.textContent = "Verify OTP & Create Account";
+
+      if (res.success) {
+        alert("Registration Successful!");
+        currentUser = res.user;
+        localStorage.setItem('apex_auth_user', JSON.stringify(currentUser));
+        closeAuthModal();
+        renderNav();
+        await syncDataAndRender();
+      } else {
+        alert(res.error || "Registration Failed.");
+      }
     });
 
     function logout() {
@@ -317,12 +456,12 @@
       renderMainView();
     }
 
-    loginModal.addEventListener('click', (e) => {
-      if (e.target === loginModal) closeLoginModal();
+    authModal.addEventListener('click', (e) => {
+      if (e.target === authModal) closeAuthModal();
     });
 
     // --------------------------------------------------------------------------
-    // 3. SEARCH & STICKY CATEGORY CONTROLS
+    // 4. SEARCH & CATEGORY CONTROLS
     // --------------------------------------------------------------------------
     userSearchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value.trim().toLowerCase();
@@ -351,10 +490,29 @@
     }
 
     // --------------------------------------------------------------------------
-    // 4. MAIN ROUTER / VIEW SWITCHER
+    // 5. MAIN ROUTER & DATA SYNC
     // --------------------------------------------------------------------------
+    async function syncDataAndRender() {
+      mainContainer.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-muted);">Syncing data from Google Sheets...</div>`;
+      const [prodsData, ordersData] = await Promise.all([
+        GAS.get("products"),
+        GAS.get("orders")
+      ]);
+
+      products = prodsData;
+      orders = ordersData.map(o => {
+        try {
+          if (typeof o.items === 'string') o.items = JSON.parse(o.items);
+        } catch(e) { o.items = []; }
+        return o;
+      });
+
+      renderNav();
+      renderMainView();
+    }
+
     function renderMainView() {
-      if (!currentUser || currentUser.role === 'user') {
+      if (!currentUser || currentUser.role !== 'admin') {
         renderStickyCategories();
         renderUserStorefront();
       } else if (currentUser.role === 'admin') {
@@ -363,16 +521,16 @@
     }
 
     // --------------------------------------------------------------------------
-    // 5. USER STOREFRONT VIEW
+    // 6. USER STOREFRONT VIEW
     // --------------------------------------------------------------------------
     function renderUserStorefront() {
       let filteredProducts = [...products];
 
       if (searchQuery) {
         filteredProducts = filteredProducts.filter(p => 
-          (p.name && p.name.toLowerCase().includes(searchQuery)) ||
-          (p.description && p.description.toLowerCase().includes(searchQuery)) ||
-          (p.category && p.category.toLowerCase().includes(searchQuery))
+          (p.name && String(p.name).toLowerCase().includes(searchQuery)) ||
+          (p.description && String(p.description).toLowerCase().includes(searchQuery)) ||
+          (p.category && String(p.category).toLowerCase().includes(searchQuery))
         );
       }
 
@@ -445,16 +603,16 @@
     }
 
     // --------------------------------------------------------------------------
-    // 6. WISHLIST & ORDERING
+    // 7. WISHLIST & ORDERING
     // --------------------------------------------------------------------------
     window.addToWishlist = function(id) {
       if (!currentUser) {
         alert("Please login first to use Wishlist!");
-        openLoginModal();
+        openAuthModal('login');
         return;
       }
 
-      const p = products.find(x => x.id === id);
+      const p = products.find(x => String(x.id) === String(id));
       if (!p) return;
 
       const qtyInput = document.getElementById(`qty_${id}`);
@@ -465,7 +623,7 @@
         return;
       }
 
-      const existingIndex = wishlist.findIndex(item => item.productId === id);
+      const existingIndex = wishlist.findIndex(item => String(item.productId) === String(id));
       if (existingIndex > -1) {
         const totalReq = wishlist[existingIndex].quantity + quantity;
         if (totalReq > Number(p.stock)) {
@@ -521,7 +679,7 @@
             <span>Grand Total:</span>
             <span>${grandTotal.toFixed(2)}</span>
           </div>
-          <button class="btn btn-primary" style="width:100%;" onclick="checkoutWishlist(${grandTotal})">Place Complete Order</button>
+          <button class="btn btn-primary" id="btnCheckout" style="width:100%;" onclick="checkoutWishlist(${grandTotal})">Place Complete Order</button>
         `;
       }
       wishlistModal.classList.add('open');
@@ -537,18 +695,20 @@
       openWishlistModal();
     };
 
-    window.checkoutWishlist = function(grandTotal) {
-      for (let item of wishlist) {
-        const prod = products.find(p => p.id === item.productId);
-        if (!prod || Number(prod.stock) < item.quantity) {
-          alert(`Product "${item.name}" does not have enough stock remaining!`);
-          return;
-        }
+    window.checkoutWishlist = async function(grandTotal) {
+      const btn = document.getElementById('btnCheckout');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Writing Order to Sheets...";
       }
 
       for (let item of wishlist) {
-        const prod = products.find(p => p.id === item.productId);
-        if (prod) prod.stock = Number(prod.stock) - item.quantity;
+        const prod = products.find(p => String(p.id) === String(item.productId));
+        if (!prod || Number(prod.stock) < item.quantity) {
+          alert(`Product "${item.name}" does not have enough stock remaining!`);
+          if (btn) { btn.disabled = false; btn.textContent = "Place Complete Order"; }
+          return;
+        }
       }
 
       const deliveryDate = new Date();
@@ -558,6 +718,7 @@
       const newOrder = {
         orderId: 'ORD-' + Date.now().toString().slice(-6),
         customerName: currentUser.name,
+        email: currentUser.email,
         date: new Date().toLocaleString(),
         estimatedDelivery: deliveryDateStr,
         status: "Processing",
@@ -565,30 +726,37 @@
         total: grandTotal
       };
 
-      orders.unshift(newOrder);
-      wishlist = [];
+      const res = await GAS.post({ action: "createOrder", data: newOrder });
 
-      saveState();
-      saveOrderState();
-      saveWishlistState();
-      updateBottomBarCounts();
-      closeWishlistModal();
-
-      alert(`Thank you ${currentUser.name}! Your order has been placed successfully.\nExpected Delivery: ${deliveryDateStr}`);
-      renderUserStorefront();
+      if (res.success) {
+        for (let item of wishlist) {
+          const prod = products.find(p => String(p.id) === String(item.productId));
+          if (prod) prod.stock = Number(prod.stock) - item.quantity;
+        }
+        orders.unshift(newOrder);
+        wishlist = [];
+        saveWishlistState();
+        updateBottomBarCounts();
+        closeWishlistModal();
+        alert(`Thank you ${currentUser.name}! Your order has been placed successfully in Google Sheets.\nExpected Delivery: ${deliveryDateStr}`);
+        renderUserStorefront();
+      } else {
+        alert(res.error || "Failed to record order.");
+        if (btn) { btn.disabled = false; btn.textContent = "Place Complete Order"; }
+      }
     };
 
     // --------------------------------------------------------------------------
-    // 7. USER "MY ORDERS" MODAL
+    // 8. USER "MY ORDERS" MODAL
     // --------------------------------------------------------------------------
     function openUserOrdersModal() {
       if (!currentUser) {
         alert("Please login first to view your orders.");
-        openLoginModal();
+        openAuthModal('login');
         return;
       }
       const container = document.getElementById('userOrdersContainer');
-      const myOrders = orders.filter(o => o.customerName === currentUser.name);
+      const myOrders = orders.filter(o => o.email === currentUser.email || o.customerName === currentUser.name);
 
       if (myOrders.length === 0) {
         container.innerHTML = `
@@ -621,7 +789,7 @@
 
                   <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem;">
                     <ul style="padding-left:1.2rem;">
-                      ${o.items.map(it => `<li>${escapeHtml(it.name)} × <strong>${it.quantity}</strong> (${it.price * it.quantity})</li>`).join('')}
+                      ${(o.items || []).map(it => `<li>${escapeHtml(it.name)} × <strong>${it.quantity}</strong> (${it.price * it.quantity})</li>`).join('')}
                     </ul>
                   </div>
 
@@ -641,7 +809,7 @@
     userOrdersModal.addEventListener('click', (e) => { if (e.target === userOrdersModal) closeUserOrdersModal(); });
 
     // --------------------------------------------------------------------------
-    // 8. ADMIN DASHBOARD VIEW (TABBED: INVENTORY VS ORDERS)
+    // 9. ADMIN DASHBOARD VIEW (TABBED: INVENTORY VS ORDERS)
     // --------------------------------------------------------------------------
     function setAdminTab(tab) {
       adminActiveTab = tab;
@@ -730,7 +898,7 @@
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="saveBtn" style="margin-top: 0.5rem; width: 100%;">Save Product to Storage</button>
+            <button type="submit" class="btn btn-primary" id="saveBtn" style="margin-top: 0.5rem; width: 100%;">Save Product to Sheets</button>
           </form>
         </div>
 
@@ -858,7 +1026,7 @@
                       <span style="font-size:0.8rem; color:var(--text-muted); margin-left:0.5rem;"> ${o.date}</span>
                     </div>
                     <div>
-                      <strong>Customer:</strong> <span class="badge badge-role">${escapeHtml(o.customerName)}</span>
+                      <strong>Customer:</strong> <span class="badge badge-role">${escapeHtml(o.customerName)} (${escapeHtml(o.email || 'N/A')})</span>
                     </div>
                   </div>
 
@@ -881,7 +1049,7 @@
                   <div style="margin-bottom:0.5rem;">
                     <strong style="font-size:0.85rem;">Ordered Items:</strong>
                     <ul style="padding-left: 1.25rem; font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
-                      ${o.items.map(it => `<li>${escapeHtml(it.name)} × <strong>${it.quantity}</strong> (${it.price * it.quantity})</li>`).join('')}
+                      ${(o.items || []).map(it => `<li>${escapeHtml(it.name)} × <strong>${it.quantity}</strong> (${it.price * it.quantity})</li>`).join('')}
                     </ul>
                   </div>
                   <div style="text-align:right; font-weight:800; font-size:1rem; border-top:1px dashed var(--border); padding-top:0.5rem;">
@@ -900,33 +1068,33 @@
       renderAdminDashboard();
     };
 
-    window.updateOrderStatus = function(orderId, newStatus) {
-      const order = orders.find(o => o.orderId === orderId);
+    window.updateOrderStatus = async function(orderId, newStatus) {
+      const order = orders.find(o => String(o.orderId) === String(orderId));
       if (order) {
         order.status = newStatus;
-        saveOrderState();
+        await GAS.post({ action: "updateOrder", data: { orderId, status: newStatus } });
         renderAdminDashboard();
       }
     };
 
-    window.updateOrderDeliveryDate = function(orderId, newDate) {
-      const order = orders.find(o => o.orderId === orderId);
+    window.updateOrderDeliveryDate = async function(orderId, newDate) {
+      const order = orders.find(o => String(o.orderId) === String(orderId));
       if (order) {
         order.estimatedDelivery = newDate.trim();
-        saveOrderState();
+        await GAS.post({ action: "updateOrder", data: { orderId, estimatedDelivery: newDate.trim() } });
       }
     };
 
-    window.clearAllOrders = function() {
-      if (confirm("Clear all customer order history?")) {
+    window.clearAllOrders = async function() {
+      if (confirm("Clear all customer order history in Google Sheets?")) {
         orders = [];
-        saveOrderState();
+        await GAS.post({ action: "clearOrders", data: {} });
         renderAdminDashboard();
       }
     };
 
     // --------------------------------------------------------------------------
-    // 9. ADMIN FORM LISTENERS & HELPERS
+    // 10. ADMIN FORM LISTENERS & HELPERS
     // --------------------------------------------------------------------------
     function attachAdminFormListeners() {
       const productForm = document.getElementById('productForm');
@@ -946,32 +1114,42 @@
 
       cancelEditBtn.addEventListener('click', resetAdminForm);
 
-      productForm.addEventListener('submit', (e) => {
+      productForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving to Google Sheets...";
+
         const id = document.getElementById('editProductId').value;
         const finalImageUrl = cleanImageUrl(document.getElementById('imageUrl').value);
 
         const productData = {
+          id: id || ('PRD-' + Date.now()),
           name: document.getElementById('name').value.trim(),
-          price: document.getElementById('price').value,
+          price: parseFloat(document.getElementById('price').value) || 0,
           stock: parseInt(document.getElementById('stock').value, 10) || 0,
           category: document.getElementById('category').value.trim() || 'General',
           imageUrl: finalImageUrl,
           description: document.getElementById('description').value.trim()
         };
 
-        if (id) {
-          const index = products.findIndex(p => p.id === id);
-          if (index !== -1) products[index] = { ...products[index], ...productData };
-        } else {
-          products.push({
-            id: 'PRD_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
-            ...productData
-          });
-        }
+        const res = await GAS.post({ action: "saveProduct", data: productData });
 
-        saveState();
-        renderAdminDashboard();
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save Product to Sheets";
+
+        if (res.success) {
+          if (id) {
+            const index = products.findIndex(p => String(p.id) === String(id));
+            if (index !== -1) products[index] = productData;
+          } else {
+            products.push(productData);
+          }
+          resetAdminForm();
+          renderAdminDashboard();
+        } else {
+          alert(res.error || "Failed to save product.");
+        }
       });
     }
 
@@ -994,7 +1172,7 @@
     }
 
     window.editProduct = function(id) {
-      const p = products.find(item => item.id === id);
+      const p = products.find(item => String(item.id) === String(id));
       if (!p) return;
 
       if (adminActiveTab !== 'inventory') {
@@ -1023,7 +1201,7 @@
       document.getElementById('productForm').reset();
       document.getElementById('stock').value = 10;
       document.getElementById('formTitle').textContent = "Add New Product";
-      document.getElementById('saveBtn').textContent = "Save Product to Storage";
+      document.getElementById('saveBtn').textContent = "Save Product to Sheets";
       document.getElementById('cancelEditBtn').style.display = "none";
       document.getElementById('imagePreview').innerHTML = '<span class="preview-placeholder">Live Image Preview</span>';
     }
@@ -1049,18 +1227,12 @@
       return String(str || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]);
     }
 
-    function saveState() {
-      try { localStorage.setItem('my_products', JSON.stringify(products)); } catch (e) {}
-    }
-    function saveOrderState() {
-      try { localStorage.setItem('my_orders', JSON.stringify(orders)); } catch (e) {}
-    }
     function saveWishlistState() {
       try { localStorage.setItem('my_wishlist', JSON.stringify(wishlist)); } catch (e) {}
     }
 
     // --------------------------------------------------------------------------
-    // 10. DELETE MODAL HANDLERS
+    // 11. DELETE MODAL HANDLERS
     // --------------------------------------------------------------------------
     const deleteModal = document.getElementById('deleteModal');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -1078,11 +1250,21 @@
 
     cancelDeleteBtn.addEventListener('click', closeDeleteModal);
 
-    confirmDeleteBtn.addEventListener('click', () => {
+    confirmDeleteBtn.addEventListener('click', async () => {
       if (deleteTargetId) {
-        products = products.filter(p => p.id !== deleteTargetId);
-        saveState();
-        renderAdminDashboard();
+        confirmDeleteBtn.disabled = true;
+        confirmDeleteBtn.textContent = "Deleting...";
+
+        const res = await GAS.post({ action: "deleteProduct", data: { id: deleteTargetId } });
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.textContent = "Delete";
+
+        if (res.success) {
+          products = products.filter(p => String(p.id) !== String(deleteTargetId));
+          renderAdminDashboard();
+        } else {
+          alert(res.error || "Failed to delete product.");
+        }
       }
       closeDeleteModal();
     });
@@ -1092,10 +1274,9 @@
     });
 
     // --------------------------------------------------------------------------
-    // 11. INITIAL LOAD
+    // 12. INITIAL LOAD
     // --------------------------------------------------------------------------
-    renderNav();
-    renderMainView();
+    syncDataAndRender();
   </script>
 </body>
 </html>
