@@ -32,14 +32,14 @@
 
 <script>
     // ================= কনফিগারেশন =================
-    const GITHUB_USERNAME = "আপনার_গিটহাব_ইউজারনেম";  // যেমন: Nexus9836
-    const DB_REPO_NAME = "my-db-repo";               // রিপোজিটরি-২ এর নাম
-    const FILE_PATH = "data.json";                   // ফাইলের নাম
-    const GITHUB_TOKEN = "আপনার_PAT_টোকেন";           // ghp_xxx দিয়ে শুরু হওয়া টোকেন
+    const GITHUB_USERNAME = "Nexus9836";
+    const DB_REPO_NAME = "my-db-repo";
+    const FILE_PATH = "data.json";
+    const GITHUB_TOKEN = "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";
     // ===============================================
 
     const API_URL = `https://api.github.com/repos/${GITHUB_USERNAME}/${DB_REPO_NAME}/contents/${FILE_PATH}`;
-    let fileSHA = ""; // ফাইল আপডেটের জন্য SHA হ্যাশ দরকার হয়
+    let fileSHA = "";
 
     // ১. ডেটা রিড করার ফাংশন (GET API)
     async function fetchData() {
@@ -57,9 +57,8 @@
             if (!response.ok) throw new Error("ডেটা লোড করা যায়নি!");
 
             const fileData = await response.json();
-            fileSHA = fileData.sha; // বর্তমান ফাইলের SHA সেভ রাখছি
+            fileSHA = fileData.sha;
 
-            // Base64 ডিকোড করে বাংলা সাপোর্ট নিশ্চিত করা
             const decodedContent = decodeURIComponent(escape(atob(fileData.content)));
             const items = JSON.parse(decodedContent);
 
@@ -76,7 +75,7 @@
             `).reverse().join("");
 
         } catch (error) {
-            container.innerHTML = `<span style="color:red;">Error: ${error.message}</span>`;
+            container.innerHTML = `<span style="color:red;">ত্রুটি: ${error.message}</span>`;
         }
     }
 
@@ -93,7 +92,6 @@
         status.innerText = "ডেটা সেভ হচ্ছে...";
 
         try {
-            // ১. আগে লেটেস্ট ডেটা ও SHA নিয়ে আসা
             const getRes = await fetch(API_URL, {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
@@ -102,18 +100,15 @@
             
             const existingContent = JSON.parse(decodeURIComponent(escape(atob(getData.content))));
 
-            // ২. নতুন ডেটা অবজেক্ট তৈরি করে যোগ করা
             const newItem = {
                 text: text,
                 time: new Date().toLocaleTimeString() + " (" + new Date().toLocaleDateString() + ")"
             };
             existingContent.push(newItem);
 
-            // ৩. নতুন সম্পূর্ণ তালিকা Base64 এনকোড করা
             const updatedContentString = JSON.stringify(existingContent, null, 2);
             const encodedContent = btoa(unescape(encodeURIComponent(updatedContentString)));
 
-            // ৪. PUT মেথড দিয়ে অন্য রিপোজিটরিতে কমিট পাঠানো
             const putRes = await fetch(API_URL, {
                 method: "PUT",
                 headers: {
@@ -130,7 +125,7 @@
             if (putRes.ok) {
                 status.innerText = "সফলভাবে সেভ হয়েছে!";
                 input.value = "";
-                fetchData(); // তালিকা রিফ্রেশ
+                fetchData();
             } else {
                 throw new Error("সেভ হতে সমস্যা হয়েছে!");
             }
