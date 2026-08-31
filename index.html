@@ -550,6 +550,24 @@
             "TEXTILE": "0.00000"
         };
 
+        // Explicit quality order. This is kept separately so Up/Down ordering
+        // is reliable and does not depend on JavaScript object-key ordering.
+        let qualityOrder = [
+            "MICRO MODAL BRIEF 101",
+            "MICRO MODAL BOXER 102",
+            "TEXTILE"
+        ];
+
+        function getQualityKeys() {
+            const existing = new Set(Object.keys(qualityData));
+            const ordered = qualityOrder.filter(q => existing.has(q));
+            Object.keys(qualityData).forEach(q => {
+                if (!ordered.includes(q)) ordered.push(q);
+            });
+            qualityOrder = ordered;
+            return ordered.slice();
+        }
+
         // Parallel tracking object for GSM
         const qualityGsmData = {
             "MICRO MODAL BRIEF 101": "0",
@@ -619,7 +637,7 @@
             if (!select) return;
             const currentSelected = selectedVal || select.value;
             select.innerHTML = "";
-            Object.keys(qualityData).forEach(q => {
+            getQualityKeys().forEach(q => {
                 const option = document.createElement('option');
                 option.value = q;
                 option.text = q;
@@ -646,71 +664,65 @@
             const container = document.getElementById('qualityOrderList');
             if (!container) return;
             container.innerHTML = "";
-            const keys = Object.keys(qualityData);
-            
+            const keys = getQualityKeys();
+
             keys.forEach((q, index) => {
                 const row = document.createElement('div');
                 row.className = "flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded text-xs";
-                row.innerHTML = `
-                    <span class="font-bold text-gray-700 truncate pr-2">${index + 1}. ${q}</span>
-                    <div class="flex items-center gap-1 shrink-0">
-                        <button onclick="editQualityName('${q}')" class="w-6 h-6 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold flex items-center justify-center" title="Rename">✏️</button>
-                        <button onclick="moveQuality(${index}, -1)" ${index === 0 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-gray-700 flex items-center justify-center">▲</button>
-                        <button onclick="moveQuality(${index}, 1)" ${index === keys.length - 1 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-gray-700 flex items-center justify-center">▼</button>
-                    </div>
-                `;
+
+                const name = document.createElement('span');
+                name.className = "font-bold text-gray-700 truncate pr-2";
+                name.textContent = `${index + 1}. ${q}`;
+
+                const actions = document.createElement('div');
+                actions.className = "flex items-center gap-1 shrink-0";
+
+                const editBtn = document.createElement('button');
+                editBtn.className = "w-6 h-6 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold flex items-center justify-center";
+                editBtn.title = "Rename";
+                editBtn.textContent = "✏️";
+                editBtn.type = "button";
+                editBtn.onclick = () => editQualityName(q);
+
+                const upBtn = document.createElement('button');
+                upBtn.className = "w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-gray-700 flex items-center justify-center";
+                upBtn.title = "Move Up";
+                upBtn.textContent = "▲";
+                upBtn.type = "button";
+                upBtn.disabled = index === 0;
+                upBtn.onclick = () => moveQuality(index, -1);
+
+                const downBtn = document.createElement('button');
+                downBtn.className = "w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-gray-700 flex items-center justify-center";
+                downBtn.title = "Move Down";
+                downBtn.textContent = "▼";
+                downBtn.type = "button";
+                downBtn.disabled = index === keys.length - 1;
+                downBtn.onclick = () => moveQuality(index, 1);
+
+                actions.append(editBtn, upBtn, downBtn);
+                row.append(name, actions);
                 container.appendChild(row);
             });
         }
 
         function moveQuality(index, direction) {
-            const keys = Object.keys(qualityData);
+            const keys = getQualityKeys();
             const targetIndex = index + direction;
-            if (targetIndex < 0 || targetIndex >= keys.length) return;
+            if (index < 0 || targetIndex < 0 || targetIndex >= keys.length) return;
 
-            const temp = keys[index];
-            keys[index] = keys[targetIndex];
-            keys[targetIndex] = temp;
+            const currentQuality = keys[index];
+            const targetQuality = keys[targetIndex];
+            keys[index] = targetQuality;
+            keys[targetIndex] = currentQuality;
+            qualityOrder = keys;
 
-            // Rebuild all tracking maps according to new order
-            const reorderedData = {};
-            const reorderedGsm = {};
-            const reorderedFoldingName = {};
-            const reorderedFoldingGm = {};
-            const reorderedRemarks = {};
-            const reorderedTextileStdCons = {};
-            const reorderedTextileTotalMeters = {};
+            // Keep the currently selected quality unchanged while only its position moves.
+            const select = document.getElementById('globalQuality');
+            const curVal = select ? select.value : currentQuality;
 
-            keys.forEach(k => {
-                reorderedData[k] = qualityData[k];
-                reorderedGsm[k] = qualityGsmData[k];
-                reorderedFoldingName[k] = qualityFoldingNameData[k];
-                reorderedFoldingGm[k] = qualityFoldingGmData[k];
-                reorderedRemarks[k] = qualityRemarksData[k];
-                reorderedTextileStdCons[k] = qualityTextileStdConsData[k];
-                reorderedTextileTotalMeters[k] = qualityTextileTotalMetersData[k];
-            });
-
-            for (let key in qualityData) delete qualityData[key];
-            for (let key in qualityGsmData) delete qualityGsmData[key];
-            for (let key in qualityFoldingNameData) delete qualityFoldingNameData[key];
-            for (let key in qualityFoldingGmData) delete qualityFoldingGmData[key];
-            for (let key in qualityRemarksData) delete qualityRemarksData[key];
-            for (let key in qualityTextileStdConsData) delete qualityTextileStdConsData[key];
-            for (let key in qualityTextileTotalMetersData) delete qualityTextileTotalMetersData[key];
-
-            Object.assign(qualityData, reorderedData);
-            Object.assign(qualityGsmData, reorderedGsm);
-            Object.assign(qualityFoldingNameData, reorderedFoldingName);
-            Object.assign(qualityFoldingGmData, reorderedFoldingGm);
-            Object.assign(qualityRemarksData, reorderedRemarks);
-            Object.assign(qualityTextileStdConsData, reorderedTextileStdCons);
-            Object.assign(qualityTextileTotalMetersData, reorderedTextileTotalMeters);
-
-            const curVal = document.getElementById('globalQuality').value;
             renderQualityDropdown(curVal);
             renderQualityOrderList();
-            saveState();
             saveSharedConfig();
         }
 
@@ -730,7 +742,7 @@
                 return;
             }
 
-            const keys = Object.keys(qualityData);
+            const keys = getQualityKeys();
             const reorderedData = {};
             const reorderedGsm = {};
             const reorderedFoldingName = {};
@@ -793,6 +805,7 @@
                 saveHistoryCloud();
             }
 
+            qualityOrder = getQualityKeys().map(q => q === currentSelected ? upperNew : q);
             renderQualityDropdown(upperNew);
             loadConsumption();
             renderQualityOrderList();
@@ -964,6 +977,7 @@
                 qualityPoloByPlaketData: { ...qualityPoloByPlaketData },
                 qualityPantSidePocketData: { ...qualityPantSidePocketData },
                 qualityPantBackPocketData: { ...qualityPantBackPocketData },
+                qualityOrder: getQualityKeys(),
                 updatedAt: Date.now()
             };
         }
@@ -1037,6 +1051,12 @@
             copyMap(qualityPoloByPlaketData, config.qualityPoloByPlaketData);
             copyMap(qualityPantSidePocketData, config.qualityPantSidePocketData);
             copyMap(qualityPantBackPocketData, config.qualityPantBackPocketData);
+            if (Array.isArray(config.qualityOrder)) {
+                qualityOrder = config.qualityOrder.filter(q => qualityData[q] !== undefined);
+            } else {
+                qualityOrder = Object.keys(qualityData);
+            }
+            getQualityKeys();
             renderQualityDropdown(document.getElementById('globalQuality')?.value);
             loadConsumption();
             cloudLoading = false;
@@ -1695,6 +1715,7 @@
                     qualityPoloByPlaketData[upperQuality] = true;
                     qualityPantSidePocketData[upperQuality] = true;
                     qualityPantBackPocketData[upperQuality] = true;
+                    if (!qualityOrder.includes(upperQuality)) qualityOrder.push(upperQuality);
                 }
                 
                 renderQualityDropdown(upperQuality);
@@ -1720,6 +1741,7 @@
                     delete qualityPoloByPlaketData[targetValue];
                     delete qualityPantSidePocketData[targetValue];
                     delete qualityPantBackPocketData[targetValue];
+                    qualityOrder = qualityOrder.filter(q => q !== targetValue);
                     renderQualityDropdown();
                     loadConsumption();
                     saveState();
@@ -3495,6 +3517,7 @@
                 qualityData["MICRO MODAL BRIEF 101"] = "0.00000";
                 qualityData["MICRO MODAL BOXER 102"] = "0.00000";
                 qualityData["TEXTILE"] = "0.00000";
+                qualityOrder = ["MICRO MODAL BRIEF 101", "MICRO MODAL BOXER 102", "TEXTILE"];
                 qualityGsmData["MICRO MODAL BRIEF 101"] = "0";
                 qualityGsmData["MICRO MODAL BOXER 102"] = "0";
                 qualityGsmData["TEXTILE"] = "0";
