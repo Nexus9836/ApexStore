@@ -192,6 +192,10 @@
                         </svg>
                         Folding Settings
                     </button>
+                    <button onclick="openTConsModal()" class="bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-700 font-bold py-1 px-3 rounded text-xs transition flex items-center gap-1 shadow-xs cursor-pointer select-none">
+                        <span class="text-sm">✓</span>
+                        T.Cons Config
+                    </button>
                 </div>
 
                 <!-- Global Wastage, Mukpat, By-Plaket & Rib Wastage Settings Row -->
@@ -312,6 +316,7 @@
                                 <span>STD GSM: <b id="printGsm" class="text-black"></b></span>
                                 <span>FABRIC GSM: <b id="printFabricGsm" class="text-black"></b></span>
                                 <span>CALC CONS: <b id="printCalcCons" class="text-blue-700"></b></span>
+                                <span id="printTConsComponents">T.CONS COMPONENTS: <b class="text-purple-700"></b></span>
                             </div>
                             <div id="printMetricsTextile" class="hidden flex gap-3">
                                 <span>STD MTR CONS: <b id="printTextileStdConsVal" class="text-black"></b></span>
@@ -542,6 +547,27 @@
         </div>
     </div>
 
+    <!-- Pop up Modal for Total Consumption Component Selection -->
+    <div id="tConsModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 hidden no-print">
+        <div class="bg-white p-5 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-2 mb-3">
+                <div>
+                    <h4 class="font-bold text-sm text-gray-800">T.Cons Settings</h4>
+                    <p class="text-[10px] text-gray-500 mt-0.5">Select components included in Total Consumption for the current quality.</p>
+                </div>
+                <button onclick="closeTConsModal()" class="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
+            </div>
+            <div id="tConsComponentList" class="space-y-1.5 text-xs font-semibold text-gray-700"></div>
+            <div class="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                <button onclick="setAllTConsComponents(false)" class="text-[10px] px-2.5 py-1.5 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 font-bold">CLEAR ALL</button>
+                <div class="flex gap-2">
+                    <button onclick="closeTConsModal()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-4 py-1.5 rounded text-xs">Cancel</button>
+                    <button onclick="saveTConsConfig()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-1.5 rounded text-xs">Save T.Cons</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global object to store consumption mapping for each quality
         const qualityData = {
@@ -615,6 +641,56 @@
         // Parallel configuration trackers for Pant specific optional fields
         const qualityPantSidePocketData = {};
         const qualityPantBackPocketData = {};
+
+        // Per-quality Total Consumption component selector configuration.
+        // Legacy records use this default so existing behaviour is preserved.
+        const DEFAULT_TCONS_CONFIG = {
+            body: true,
+            folding: false,
+            rib: false,
+            pocket: false,
+            collar: false,
+            sidePkt: false,
+            backPkt: false,
+            wastage: true,
+            mukpat: true,
+            ribWastage: false
+        };
+        const TCONS_COMPONENT_LABELS = {
+            body: "Body Weight",
+            folding: "Folding / Rib / Piping",
+            rib: "Rib Weight",
+            pocket: "Pocket + Plaket Weight",
+            collar: "Collar & Cuff Weight",
+            sidePkt: "Side Pocket Weight",
+            backPkt: "Back Pocket Weight",
+            wastage: "Lay Wastage Weight",
+            mukpat: "Mukpat Weight",
+            ribWastage: "Rib Wastage Weight"
+        };
+        const qualityTConsConfigData = {
+            "MICRO MODAL BRIEF 101": { ...DEFAULT_TCONS_CONFIG },
+            "MICRO MODAL BOXER 102": { ...DEFAULT_TCONS_CONFIG },
+            "TEXTILE": { ...DEFAULT_TCONS_CONFIG }
+        };
+
+        function getDefaultTConsConfig() {
+            return { ...DEFAULT_TCONS_CONFIG };
+        }
+
+        function getTConsConfig(quality) {
+            const existing = qualityTConsConfigData[quality];
+            return existing && typeof existing === "object"
+                ? { ...getDefaultTConsConfig(), ...existing }
+                : getDefaultTConsConfig();
+        }
+
+        function getTConsComponentNames(config) {
+            const cfg = config || getDefaultTConsConfig();
+            return Object.keys(TCONS_COMPONENT_LABELS)
+                .filter(key => cfg[key] === true)
+                .map(key => TCONS_COMPONENT_LABELS[key]);
+        }
 
         // Parallel array for History data
         let historyData = [];
@@ -778,6 +854,10 @@
                 qualityPantBackPocketData[upperNew] = qualityPantBackPocketData[currentSelected];
                 delete qualityPantBackPocketData[currentSelected];
             }
+            if (qualityTConsConfigData[currentSelected] !== undefined) {
+                qualityTConsConfigData[upperNew] = { ...qualityTConsConfigData[currentSelected] };
+                delete qualityTConsConfigData[currentSelected];
+            }
 
             for (let key in qualityData) delete qualityData[key];
             for (let key in qualityGsmData) delete qualityGsmData[key];
@@ -932,6 +1012,7 @@
             return {
                 selectedQuality: document.getElementById('globalQuality')?.value || '',
                 qualityRemarksData: { ...qualityRemarksData },
+                qualityTConsConfigData: JSON.parse(JSON.stringify(qualityTConsConfigData)),
                 userId: cloudUser?.uid || '',
                 userEmail: cloudUser?.email || '',
                 fabricGsm: document.getElementById('fabricGsmInput')?.value || '',
@@ -977,6 +1058,7 @@
                 qualityPoloByPlaketData: { ...qualityPoloByPlaketData },
                 qualityPantSidePocketData: { ...qualityPantSidePocketData },
                 qualityPantBackPocketData: { ...qualityPantBackPocketData },
+                qualityTConsConfigData: JSON.parse(JSON.stringify(qualityTConsConfigData)),
                 qualityOrder: getQualityKeys(),
                 updatedAt: Date.now()
             };
@@ -1051,6 +1133,9 @@
             copyMap(qualityPoloByPlaketData, config.qualityPoloByPlaketData);
             copyMap(qualityPantSidePocketData, config.qualityPantSidePocketData);
             copyMap(qualityPantBackPocketData, config.qualityPantBackPocketData);
+            if (config.qualityTConsConfigData && typeof config.qualityTConsConfigData === 'object') {
+                copyMap(qualityTConsConfigData, config.qualityTConsConfigData);
+            }
             if (Array.isArray(config.qualityOrder)) {
                 qualityOrder = config.qualityOrder.filter(q => qualityData[q] !== undefined);
             } else {
@@ -1146,6 +1231,7 @@
             setChecked('adjTargetMukpat', draft.adjTargetMukpat); setChecked('adjTargetRib', draft.adjTargetRib); setChecked('adjTargetPocket', draft.adjTargetPocket);
             setChecked('adjTargetSidePocket', draft.adjTargetSidePocket); setChecked('adjTargetBackPocket', draft.adjTargetBackPocket); setChecked('adjTargetCollar', draft.adjTargetCollar);
             if (draft.qualityRemarksData && typeof draft.qualityRemarksData === 'object') copyMap(qualityRemarksData, draft.qualityRemarksData);
+            if (draft.qualityTConsConfigData && typeof draft.qualityTConsConfigData === 'object') copyMap(qualityTConsConfigData, draft.qualityTConsConfigData);
             renderQualityDropdown(draft.selectedQuality || undefined);
             restoreCloudItems(draft.items);
             loadConsumption();
@@ -1250,6 +1336,52 @@
         window.handleCloudSignedOut = handleSignedOut;
         window.setCloudAuthStatus = setAuthStatus;
 
+        function renderTConsComponentList() {
+            const container = document.getElementById('tConsComponentList');
+            const quality = document.getElementById('globalQuality')?.value || "";
+            if (!container) return;
+            const config = getTConsConfig(quality);
+            container.innerHTML = Object.keys(TCONS_COMPONENT_LABELS).map(key => `
+                <label class="flex items-center justify-between gap-3 p-2 rounded border border-gray-200 hover:bg-purple-50 cursor-pointer">
+                    <span>${TCONS_COMPONENT_LABELS[key]}</span>
+                    <input type="checkbox" id="tconsCfg_${key}" ${config[key] ? 'checked' : ''} class="w-4 h-4 accent-purple-600">
+                </label>
+            `).join('');
+        }
+
+        function openTConsModal() {
+            renderTConsComponentList();
+            document.getElementById('tConsModal')?.classList.remove('hidden');
+        }
+
+        function closeTConsModal() {
+            document.getElementById('tConsModal')?.classList.add('hidden');
+        }
+
+        function setAllTConsComponents(checked) {
+            Object.keys(TCONS_COMPONENT_LABELS).forEach(key => {
+                const el = document.getElementById(`tconsCfg_${key}`);
+                if (el) el.checked = checked;
+            });
+        }
+
+        function saveTConsConfig() {
+            const quality = document.getElementById('globalQuality')?.value || "";
+            if (!quality) return;
+            const config = {};
+            Object.keys(TCONS_COMPONENT_LABELS).forEach(key => {
+                const el = document.getElementById(`tconsCfg_${key}`);
+                config[key] = !!el?.checked;
+            });
+            // Body is the safest legacy/default base; allow users to turn it off,
+            // but ensure an explicit config is always stored for this quality.
+            qualityTConsConfigData[quality] = config;
+            closeTConsModal();
+            calculateTotals(false);
+            saveSharedConfig();
+            saveState();
+        }
+
         function openFoldingModal() {
             document.getElementById('foldingModal').classList.remove('hidden');
         }
@@ -1323,6 +1455,14 @@
             <span>FABRIC GSM: <b>${item.fabricGsm || '0'}</b></span>
         `;
     }
+
+    const showTConsConfig = item.tConsComponents && typeof item.tConsComponents === 'object'
+        ? { ...getDefaultTConsConfig(), ...item.tConsComponents }
+        : getTConsConfig(item.quality);
+    const showTConsNames = Array.isArray(item.tConsComponentNames) && item.tConsComponentNames.length
+        ? item.tConsComponentNames
+        : getTConsComponentNames(showTConsConfig);
+    metricsHtml += `<span class="basis-full text-purple-700">T.CONS COMPONENTS: <b>${showTConsNames.join(', ') || 'NONE'}</b></span>`;
 
     if (isFoldingActive) {
         metricsHtml += `<span>${fName}: <b>${fGm.toFixed(5)}g</b></span>`;
@@ -1715,6 +1855,7 @@
                     qualityPoloByPlaketData[upperQuality] = true;
                     qualityPantSidePocketData[upperQuality] = true;
                     qualityPantBackPocketData[upperQuality] = true;
+                    qualityTConsConfigData[upperQuality] = { ...getDefaultTConsConfig() };
                     if (!qualityOrder.includes(upperQuality)) qualityOrder.push(upperQuality);
                 }
                 
@@ -1741,6 +1882,7 @@
                     delete qualityPoloByPlaketData[targetValue];
                     delete qualityPantSidePocketData[targetValue];
                     delete qualityPantBackPocketData[targetValue];
+                    delete qualityTConsConfigData[targetValue];
                     qualityOrder = qualityOrder.filter(q => q !== targetValue);
                     renderQualityDropdown();
                     loadConsumption();
@@ -2530,9 +2672,22 @@
                     const rowTotalWeight = rBody + rFolding + rRib + rPktPlkt + rSidePkt + rBackPkt + rCollarCuff + rWastage;
                     row.querySelector('.row-total').innerText = rowTotalWeight.toFixed(3);
 
-                    // Consumption calculation zone: Include lay components + lay wastages
-                    let mainWastageShare = mainWastageOnlyPart + mainMukpatPart;
-                    let mainFabricRowWeight = bodywt + pktPlktWt + sidePocketWt + backPocketWt + mainWastageShare;
+                    // Consumption calculation zone: component-selected T.Cons
+                    // Each quality keeps its own inclusion rules.
+                    const tConsConfig = getTConsConfig(currentQuality);
+                    let selectedWeight = 0;
+                    if (tConsConfig.body) selectedWeight += rBody;
+                    if (tConsConfig.folding) selectedWeight += rFolding;
+                    if (tConsConfig.rib) selectedWeight += rRib;
+                    if (tConsConfig.pocket) selectedWeight += rPktPlkt;
+                    if (tConsConfig.sidePkt) selectedWeight += rSidePkt;
+                    if (tConsConfig.backPkt) selectedWeight += rBackPkt;
+                    if (tConsConfig.collar) selectedWeight += rCollarCuff;
+                    if (tConsConfig.wastage) selectedWeight += parseFloat(mainWastageOnlyPart.toFixed(3));
+                    if (tConsConfig.mukpat) selectedWeight += parseFloat(mainMukpatPart.toFixed(3));
+                    if (tConsConfig.ribWastage) selectedWeight += parseFloat((isGrsActive ? globalRibWastage > 0 ? (tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalRibWastage : 0) : 0 : 0).toFixed(3));
+
+                    let mainFabricRowWeight = selectedWeight;
 
                     // Display regular weights per pc (mapped to 5 decimal places)
                     const grandBCons = pics > 0 ? rBody / pics : 0;
@@ -2890,6 +3045,9 @@
             const poloHasByPlaket = isPoloActive && (item.poloHasByPlaket !== false);
             const pantHasSidePocket = isPantActive && (item.pantHasSidePocket !== false);
             const pantHasBackPocket = isPantActive && (item.pantHasBackPocket !== false);
+            const downloadTConsConfig = item.tConsComponents && typeof item.tConsComponents === 'object'
+                ? { ...getDefaultTConsConfig(), ...item.tConsComponents }
+                : getTConsConfig(currentQuality);
 
             const hasRibCol = !isTextileActive && isGrsActive;
             const hasPktCol = !isTextileActive && isPoloActive;
@@ -3118,8 +3276,18 @@
                         let rowWastage = rowWastagePart + rowMukpatPart;
                         let rowTotal = bodywt + foldingWt + ribWt + pktPlktWt + sidePktWt + backPktWt + collarCuffWt + rowWastage;
                         let bCons = pics > 0 ? (bodywt / pics).toFixed(5) : "0.00000";
-                        let mainWastageShare = mainWastageOnlyPart + mainMukpatPart;
-                        let tCons = pics > 0 ? ((bodywt + pktPlktWt + sidePktWt + backPktWt + mainWastageShare) / pics).toFixed(5) : "0.00000";
+                        let selectedWeight = 0;
+                        if (downloadTConsConfig.body) selectedWeight += bodywt;
+                        if (downloadTConsConfig.folding) selectedWeight += foldingWt;
+                        if (downloadTConsConfig.rib) selectedWeight += ribWt;
+                        if (downloadTConsConfig.pocket) selectedWeight += pktPlktWt;
+                        if (downloadTConsConfig.sidePkt) selectedWeight += sidePktWt;
+                        if (downloadTConsConfig.backPkt) selectedWeight += backPktWt;
+                        if (downloadTConsConfig.collar) selectedWeight += collarCuffWt;
+                        if (downloadTConsConfig.wastage) selectedWeight += mainWastageOnlyPart;
+                        if (downloadTConsConfig.mukpat) selectedWeight += mainMukpatPart;
+                        if (downloadTConsConfig.ribWastage) selectedWeight += (isGrsActive ? (pics / totalPicsSum) * globalRibWastage : 0);
+                        let tCons = pics > 0 ? (selectedWeight / pics).toFixed(5) : "0.00000";
 
                         rowTds.push(bodywt.toFixed(3));
                         if (hasRibCol) rowTds.push(ribWt.toFixed(3));
@@ -3142,7 +3310,7 @@
                         totalCollarCuffSum += collarCuffWt;
                         totalWastageSum += rowWastage;
                         totalWeightSum += rowTotal;
-                        totalMainFabricSum += (bodywt + pktPlktWt + sidePktWt + backPktWt + mainWastageShare);
+                        totalMainFabricSum += selectedWeight;
                     }
 
                     rowsHtml += `<tr>${rowTds.map(v => `<td style="border: 1px solid #cbd5e1; padding: 4px 3px; text-align: center;">${v}</td>`).join('')}</tr>`;
@@ -3212,6 +3380,7 @@
             if (!isTextileActive && isFoldingActive) {
                 metricsDetails += `<span>${fName} (GM/PC): <b>${fGm.toFixed(5)}</b></span>`;
             }
+            metricsDetails += `<span style="flex-basis:100%; color:#6d28d9;">T.CONS COMPONENTS: <b>${getTConsComponentNames(downloadTConsConfig).join(', ') || 'NONE'}</b></span>`;
 
             let extraWeightsHtml = `<span>WASTAGE WT: <b>${adjWst.toFixed(3)}</b></span>`;
             if (!isTextileActive) extraWeightsHtml += `<span>MUKPAT WT: <b>${adjMkpt.toFixed(3)}</b></span>`;
@@ -3326,6 +3495,7 @@
                 qualityRemarksData: qualityRemarksData,
                 qualityTextileStdConsData: qualityTextileStdConsData,
                 qualityTextileTotalMetersData: qualityTextileTotalMetersData,
+                qualityTConsConfigData: qualityTConsConfigData,
                 selectedQuality: document.getElementById('globalQuality').value,
                 fabricGsm: document.getElementById('fabricGsmInput').value,
                 poloTotalPocket: getGlobalVal('poloTotalPocketInput'),
@@ -3398,6 +3568,7 @@
                         if (importedObj.qualityRemarksData) Object.assign(qualityRemarksData, importedObj.qualityRemarksData);
                         if (importedObj.qualityTextileStdConsData) Object.assign(qualityTextileStdConsData, importedObj.qualityTextileStdConsData);
                         if (importedObj.qualityTextileTotalMetersData) Object.assign(qualityTextileTotalMetersData, importedObj.qualityTextileTotalMetersData);
+                        if (importedObj.qualityTConsConfigData) Object.assign(qualityTConsConfigData, importedObj.qualityTConsConfigData);
 
                         renderQualityDropdown(importedObj.selectedQuality);
 
@@ -3833,6 +4004,8 @@
                 totalWeight,
                 totalBCons,
                 totalTCons,
+                tConsComponents: { ...getTConsConfig(quality) },
+                tConsComponentNames: getTConsComponentNames(getTConsConfig(quality)),
                 totalRibWt: document.getElementById('totalRibWtDisplay').innerText,
                 poloTotalPocket: getGlobalVal('poloTotalPocketInput'),
                 poloTotalPlaket: getGlobalVal('poloTotalPlaketInput'),
@@ -4182,6 +4355,7 @@
                             <div class="text-center"><span class="block text-[10px] font-medium text-gray-400">
                                 ${item.quality.toUpperCase().includes('TEXTILE') ? (item.textileCheckMode ? 'TOTAL MTR/PC' : 'TOTAL WT/PC') : 'T. CONS'}
                             </span><span class="text-green-600">${item.totalTCons}</span></div>
+                            <div class="text-center min-w-[120px]"><span class="block text-[10px] font-medium text-gray-400">T.CONS COMPONENTS</span><span class="text-purple-600">${escapeHtml((item.tConsComponentNames && item.tConsComponentNames.length ? item.tConsComponentNames : getTConsComponentNames(item.tConsComponents)).join(', ') || 'NONE')}</span></div>
                             ${item.consVarianceText ? `<div class="text-center min-w-[90px]"><span class="block text-[10px] font-medium text-gray-400">VARIANCE</span><span class="${item.consVarianceClass}">${item.consVarianceText}</span></div>` : ''}
                         </div>
                         <div class="flex gap-2 shrink-0 ml-auto sm:ml-2">
