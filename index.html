@@ -649,22 +649,28 @@
             folding: false,
             rib: false,
             pocket: false,
+            plaket: false,
+            byPlaket: false,
             collar: false,
             sidePkt: false,
             backPkt: false,
             wastage: true,
+            byPlaketWastage: false,
             mukpat: true,
             ribWastage: false
         };
         const TCONS_COMPONENT_LABELS = {
             body: "Body Weight",
-            folding: "Folding / Rib / Piping",
+            folding: "Folding / Piping Weight",
             rib: "Rib Weight",
-            pocket: "Pocket + Plaket Weight",
+            pocket: "Pocket Weight",
+            plaket: "Plaket Weight",
+            byPlaket: "By-Plaket Weight",
             collar: "Collar & Cuff Weight",
             sidePkt: "Side Pocket Weight",
             backPkt: "Back Pocket Weight",
             wastage: "Lay Wastage Weight",
+            byPlaketWastage: "By-Plaket Wastage Weight",
             mukpat: "Mukpat Weight",
             ribWastage: "Rib Wastage Weight"
         };
@@ -680,9 +686,18 @@
 
         function getTConsConfig(quality) {
             const existing = qualityTConsConfigData[quality];
-            return existing && typeof existing === "object"
-                ? { ...getDefaultTConsConfig(), ...existing }
-                : getDefaultTConsConfig();
+            if (!existing || typeof existing !== "object") return getDefaultTConsConfig();
+
+            const config = { ...getDefaultTConsConfig(), ...existing };
+
+            // Backward compatibility: older configs had one combined Pocket + Plaket option.
+            // If that legacy option exists without the new explicit Plaket key, preserve its meaning.
+            if (Object.prototype.hasOwnProperty.call(existing, "pocket") &&
+                !Object.prototype.hasOwnProperty.call(existing, "plaket")) {
+                config.plaket = existing.pocket === true;
+            }
+
+            return config;
         }
 
         function getTConsComponentNames(config) {
@@ -1457,7 +1472,14 @@
     }
 
     const showTConsConfig = item.tConsComponents && typeof item.tConsComponents === 'object'
-        ? { ...getDefaultTConsConfig(), ...item.tConsComponents }
+        ? (() => {
+            const legacyConfig = item.tConsComponents;
+            const cfg = { ...getDefaultTConsConfig(), ...legacyConfig };
+            if (Object.prototype.hasOwnProperty.call(legacyConfig, "pocket") && !Object.prototype.hasOwnProperty.call(legacyConfig, "plaket")) {
+                cfg.plaket = legacyConfig.pocket === true;
+            }
+            return cfg;
+        })()
         : getTConsConfig(item.quality);
     const showTConsNames = Array.isArray(item.tConsComponentNames) && item.tConsComponentNames.length
         ? item.tConsComponentNames
@@ -1568,44 +1590,48 @@
             const pics = parseFloat(it.pics) || 0;
             let bodywt = parseFloat(it.bodywt) || 0;
 
-            let foldingWt = isFoldingActive ? (pics * fGm) : 0;
-            if (isPoloActive && poloHasByPlaket) {
-                let byPlk = totalPicsSum > 0 ? (pics / totalPicsSum) * totalByPlaketGlobal : 0;
-                foldingWt += byPlk;
-            }
+            let foldingOnlyWt = isFoldingActive ? (pics * fGm) : 0;
+            let byPlaketWt = (isPoloActive && poloHasByPlaket && totalPicsSum > 0)
+                ? (pics / totalPicsSum) * totalByPlaketGlobal : 0;
+            let foldingWt = foldingOnlyWt + byPlaketWt;
 
             let ribWt = isGrsActive ? (globalRibTotal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibTotal : 0) : (parseFloat(it.ribwt) || 0)) : 0;
 
-            let pktPlktWt = 0;
-            if (isPoloActive) {
-                let plk = totalPicsSum > 0 ? (pics / totalPicsSum) * totalPlaketGlobal : 0;
-                let pkt = (poloHasPocket && totalPicsSum > 0) ? (pics / totalPicsSum) * totalPocketGlobal : 0;
-                pktPlktWt = pkt + plk;
-            }
+            let pocketWt = isPoloActive ? (poloHasPocket && totalPicsSum > 0 ? (pics / totalPicsSum) * totalPocketGlobal : 0) : 0;
+            let plaketWt = isPoloActive ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalPlaketGlobal : 0) : 0;
+            let pktPlktWt = pocketWt + plaketWt;
 
             let sidePktWt = (isPantActive && pantHasSidePocket) ? (totalSidePocketGlobal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalSidePocketGlobal : 0) : (parseFloat(it.sidepocket) || 0)) : 0;
             let backPktWt = (isPantActive && pantHasBackPocket) ? (totalBackPocketGlobal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalBackPocketGlobal : 0) : (parseFloat(it.backpocket) || 0)) : 0;
             let collarCuffWt = isPoloActive ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalCollarCuffGlobal : 0) : 0;
 
-            let rowWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalByPlaketWastage + globalRibWastage) : 0;
+            let layWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalWastage : 0;
+            let byPlaketWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalByPlaketWastage : 0;
+            let ribWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0;
             let rowMukpatPart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalMukpat : 0;
-
-            let mainWastageOnlyPart = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalRibWastage) : 0;
-            let mainMukpatPart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalMukpat : 0;
+            let rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+            let mainWastageOnlyPart = layWastagePart;
+            let mainByPlaketWastagePart = byPlaketWastagePart;
+            let mainRibWastagePart = ribWastagePart;
+            let mainMukpatPart = rowMukpatPart;
 
             if (!isTextileActive && adjWeightValue > 0 && adjFactor > 0) {
                 if (chkBody) {
                     bodywt = roundTo50g(bodywt + bodywt * adjFactor * adjSign);
                 }
                 if (chkWastage) {
-                    let wstShare = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalByPlaketWastage) : 0;
-                    rowWastagePart += wstShare * adjFactor * adjSign;
-                    mainWastageOnlyPart += wstShare * adjFactor * adjSign;
+                    let layShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalWastage : 0;
+                    let byPlaketShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalByPlaketWastage : 0;
+                    layWastagePart += layShare * adjFactor * adjSign;
+                    byPlaketWastagePart += byPlaketShare * adjFactor * adjSign;
+                    rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                    mainWastageOnlyPart = layWastagePart;
+                    mainByPlaketWastagePart = byPlaketWastagePart;
                 }
                 if (chkRibWastage && isGrsActive) {
-                    let rWstShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0;
-                    rowWastagePart += rWstShare * adjFactor * adjSign;
-                    mainWastageOnlyPart += rWstShare * adjFactor * adjSign;
+                    ribWastagePart += (totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0) * adjFactor * adjSign;
+                    rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                    mainRibWastagePart = ribWastagePart;
                 }
                 if (chkMukpat) {
                     rowMukpatPart += rowMukpatPart * adjFactor * adjSign;
@@ -1614,7 +1640,11 @@
                 if (chkRib && isGrsActive) {
                     ribWt += ribWt * adjFactor * adjSign;
                 }
-                if (chkPocket && isPoloActive) pktPlktWt += pktPlktWt * adjFactor * adjSign;
+                if (chkPocket && isPoloActive) {
+                            pocketWt += pocketWt * adjFactor * adjSign;
+                            plaketWt += plaketWt * adjFactor * adjSign;
+                            pktPlktWt = pocketWt + plaketWt;
+                        }
                 if (chkSidePkt && isPantActive && pantHasSidePocket) {
                     sidePktWt += sidePktWt * adjFactor * adjSign;
                 }
@@ -1624,22 +1654,44 @@
                 if (chkCollar && isPoloActive) collarCuffWt += collarCuffWt * adjFactor * adjSign;
             }
 
-            foldingWt = roundTo50g(foldingWt);
+            foldingOnlyWt = roundTo50g(foldingOnlyWt);
+            byPlaketWt = roundTo50g(byPlaketWt);
+            foldingWt = foldingOnlyWt + byPlaketWt;
             if (globalRibTotal > 0 || isGrsActive) ribWt = roundTo50g(ribWt);
-            pktPlktWt = roundTo50g(pktPlktWt);
-            if (totalSidePocketGlobal > 0 || (isPantActive && pantHasSidePocket)) sidePocketWt = roundTo50g(sidePocketWt);
-            if (totalBackPocketGlobal > 0 || (isPantActive && pantHasBackPocket)) backPocketWt = roundTo50g(backPocketWt);
+            pocketWt = roundTo50g(pocketWt);
+            plaketWt = roundTo50g(plaketWt);
+            pktPlktWt = pocketWt + plaketWt;
+            if (totalSidePocketGlobal > 0 || (isPantActive && pantHasSidePocket)) sidePktWt = roundTo50g(sidePktWt);
+            if (totalBackPocketGlobal > 0 || (isPantActive && pantHasBackPocket)) backPktWt = roundTo50g(backPktWt);
             collarCuffWt = roundTo50g(collarCuffWt);
-            rowWastagePart = roundTo50g(rowWastagePart);
+            layWastagePart = roundTo50g(layWastagePart);
+            byPlaketWastagePart = roundTo50g(byPlaketWastagePart);
+            ribWastagePart = roundTo50g(ribWastagePart);
+            rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
             rowMukpatPart = roundTo50g(rowMukpatPart);
-            mainWastageOnlyPart = roundTo50g(mainWastageOnlyPart);
-            mainMukpatPart = roundTo50g(mainMukpatPart);
+            mainWastageOnlyPart = layWastagePart;
+            mainByPlaketWastagePart = byPlaketWastagePart;
+            mainRibWastagePart = ribWastagePart;
+            mainMukpatPart = rowMukpatPart;
 
             let rowWastage = rowWastagePart + rowMukpatPart;
             let rowTotal = bodywt + foldingWt + ribWt + pktPlktWt + sidePktWt + backPktWt + collarCuffWt + rowWastage;
             let bCons = pics > 0 ? (bodywt / pics).toFixed(5) : "0.00000";
-            let mainWastageShare = mainWastageOnlyPart + mainMukpatPart;
-            let tCons = pics > 0 ? ((bodywt + pktPlktWt + sidePktWt + backPktWt + mainWastageShare) / pics).toFixed(5) : "0.00000";
+            let selectedWeight = 0;
+            if (showTConsConfig.body) selectedWeight += bodywt;
+            if (showTConsConfig.folding) selectedWeight += foldingOnlyWt;
+            if (showTConsConfig.byPlaket) selectedWeight += byPlaketWt;
+            if (showTConsConfig.rib) selectedWeight += ribWt;
+            if (showTConsConfig.pocket) selectedWeight += pocketWt;
+            if (showTConsConfig.plaket) selectedWeight += plaketWt;
+            if (showTConsConfig.sidePkt) selectedWeight += sidePktWt;
+            if (showTConsConfig.backPkt) selectedWeight += backPktWt;
+            if (showTConsConfig.collar) selectedWeight += collarCuffWt;
+            if (showTConsConfig.wastage) selectedWeight += mainWastageOnlyPart;
+            if (showTConsConfig.byPlaketWastage) selectedWeight += mainByPlaketWastagePart;
+            if (showTConsConfig.mukpat) selectedWeight += mainMukpatPart;
+            if (showTConsConfig.ribWastage) selectedWeight += mainRibWastagePart;
+            let tCons = pics > 0 ? (selectedWeight / pics).toFixed(5) : "0.00000";
 
             rowsHtml += `
                 <tr class="hover:bg-gray-50 border-b border-gray-200">
@@ -2477,12 +2529,11 @@
                     const fName = qualityFoldingNameData[currentQuality] || "";
                     const fGm = parseFloat(qualityFoldingGmData[currentQuality]) || 0;
 
-                    // Evaluate auto generated item parameters weight conversions (Folding + By-Plaket combined)
-                    let foldingWt = isFoldingActive ? (pics * fGm) : 0;
-                    if (isPoloActive && poloHasByPlaket) {
-                        let byPlaketWt = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * totalByPlaketGlobal : 0;
-                        foldingWt += byPlaketWt;
-                    }
+                    // Keep Folding/Piping and By-Plaket as separate T.Cons components.
+                    let foldingOnlyWt = isFoldingActive ? (pics * fGm) : 0;
+                    let byPlaketWt = (isPoloActive && poloHasByPlaket && tempTotalPicsSum > 0)
+                        ? (pics / tempTotalPicsSum) * totalByPlaketGlobal : 0;
+                    let foldingWt = foldingOnlyWt + byPlaketWt;
 
                     if (foldingTd) {
                         if (isFoldingActive || (isPoloActive && poloHasByPlaket)) {
@@ -2513,14 +2564,17 @@
                         }
                     }
 
-                    // Combined pocket and plaket calculations
+                    // Separate Polo Pocket and Plaket calculations. They remain combined only for
+                    // the visible row/total weight, while T.Cons can select them independently.
+                    let pocketWt = 0;
+                    let plaketWt = 0;
                     let pktPlktWt = 0;
                     if (pocketTd) {
                         if (isPoloActive) {
                             pocketTd.classList.remove('hidden');
-                            let plaketWt = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * totalPlaketGlobal : 0;
-                            let pocketOnlyWt = (poloHasPocket && tempTotalPicsSum > 0) ? (pics / tempTotalPicsSum) * totalPocketGlobal : 0;
-                            pktPlktWt = pocketOnlyWt + plaketWt;
+                            plaketWt = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * totalPlaketGlobal : 0;
+                            pocketWt = (poloHasPocket && tempTotalPicsSum > 0) ? (pics / tempTotalPicsSum) * totalPocketGlobal : 0;
+                            pktPlktWt = pocketWt + plaketWt;
                         } else {
                             pocketTd.classList.add('hidden');
                             pocketTd.innerText = '0.000';
@@ -2580,12 +2634,18 @@
                         }
                     }
 
-                    // Distributed base shares parts definition
-                    let rowWastagePart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * (globalWastage + globalByPlaketWastage + globalRibWastage) : 0;
+                    // Distributed component shares. Keep every T.Cons component separate so a
+                    // selected component can never be counted again through another component.
+                    let layWastagePart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalWastage : 0;
+                    let byPlaketWastagePart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalByPlaketWastage : 0;
+                    let ribWastagePart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalRibWastage : 0;
                     let rowMukpatPart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalMukpat : 0;
 
-                    let mainWastageOnlyPart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * (globalWastage + globalRibWastage) : 0;
-                    let mainMukpatPart = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalMukpat : 0;
+                    let rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                    let mainWastageOnlyPart = layWastagePart;
+                    let mainByPlaketWastagePart = byPlaketWastagePart;
+                    let mainRibWastagePart = ribWastagePart;
+                    let mainMukpatPart = rowMukpatPart;
 
                     // Apply proportional adjustment modifiers
                     if (adjWeightValue > 0) {
@@ -2609,14 +2669,18 @@
                             bodyWtInput.value = bodywt.toFixed(3);
                         }
                         if (chkWastage) {
-                            let wstShare = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * (globalWastage + globalByPlaketWastage) : 0;
-                            rowWastagePart += wstShare * adjFactor * adjSign;
-                            mainWastageOnlyPart += wstShare * adjFactor * adjSign;
+                            let layShare = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalWastage : 0;
+                            let byPlaketShare = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalByPlaketWastage : 0;
+                            layWastagePart += layShare * adjFactor * adjSign;
+                            byPlaketWastagePart += byPlaketShare * adjFactor * adjSign;
+                            rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                            mainWastageOnlyPart = layWastagePart;
+                            mainByPlaketWastagePart = byPlaketWastagePart;
                         }
                         if (chkRibWastage && isGrsActive) {
-                            let rWstShare = tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalRibWastage : 0;
-                            rowWastagePart += rWstShare * adjFactor * adjSign;
-                            mainWastageOnlyPart += rWstShare * adjFactor * adjSign;
+                            ribWastagePart += (tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalRibWastage : 0) * adjFactor * adjSign;
+                            rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                            mainRibWastagePart = ribWastagePart;
                         }
                         if (chkMukpat) {
                             rowMukpatPart += rowMukpatPart * adjFactor * adjSign;
@@ -2625,7 +2689,11 @@
                         if (chkRib && isGrsActive) {
                             ribWt += ribWt * adjFactor * adjSign;
                         }
-                        if (chkPocket && isPoloActive) pktPlktWt += pktPlktWt * adjFactor * adjSign;
+                        if (chkPocket && isPoloActive) {
+                                pocketWt += pocketWt * adjFactor * adjSign;
+                                plaketWt += plaketWt * adjFactor * adjSign;
+                                pktPlktWt = pocketWt + plaketWt;
+                            }
                         if (chkSidePkt && isPantActive && pantHasSidePocket) {
                             sidePktWt += sidePktWt * adjFactor * adjSign;
                         }
@@ -2636,16 +2704,25 @@
                     }
 
                     // Convert distributed and adjusted weights (Including folding to 50g increments)
-                    foldingWt = roundTo50g(foldingWt);
+                    foldingOnlyWt = roundTo50g(foldingOnlyWt);
+                    byPlaketWt = roundTo50g(byPlaketWt);
+                    foldingWt = foldingOnlyWt + byPlaketWt;
                     if (globalRibTotal > 0) ribWt = roundTo50g(ribWt);
-                    pktPlktWt = roundTo50g(pktPlktWt);
+                    pocketWt = roundTo50g(pocketWt);
+                    plaketWt = roundTo50g(plaketWt);
+                    pktPlktWt = pocketWt + plaketWt;
                     if (totalSidePocketGlobal > 0) sidePocketWt = roundTo50g(sidePocketWt);
                     if (totalBackPocketGlobal > 0) backPocketWt = roundTo50g(backPocketWt);
                     collarCuffWt = roundTo50g(collarCuffWt);
-                    rowWastagePart = roundTo50g(rowWastagePart);
+                    layWastagePart = roundTo50g(layWastagePart);
+                    byPlaketWastagePart = roundTo50g(byPlaketWastagePart);
+                    ribWastagePart = roundTo50g(ribWastagePart);
+                    rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
                     rowMukpatPart = roundTo50g(rowMukpatPart);
-                    mainWastageOnlyPart = roundTo50g(mainWastageOnlyPart);
-                    mainMukpatPart = roundTo50g(mainMukpatPart);
+                    mainWastageOnlyPart = layWastagePart;
+                    mainByPlaketWastagePart = byPlaketWastagePart;
+                    mainRibWastagePart = ribWastagePart;
+                    mainMukpatPart = rowMukpatPart;
 
                     // Unconditionally push live adjusted parameters text displays into inner target inputs/cells
                     if (foldingTd && (isFoldingActive || (isPoloActive && poloHasByPlaket))) foldingTd.innerText = foldingWt.toFixed(3);
@@ -2677,15 +2754,18 @@
                     const tConsConfig = getTConsConfig(currentQuality);
                     let selectedWeight = 0;
                     if (tConsConfig.body) selectedWeight += rBody;
-                    if (tConsConfig.folding) selectedWeight += rFolding;
+                    if (tConsConfig.folding) selectedWeight += parseFloat(foldingOnlyWt.toFixed(3));
+                    if (tConsConfig.byPlaket) selectedWeight += parseFloat(byPlaketWt.toFixed(3));
                     if (tConsConfig.rib) selectedWeight += rRib;
-                    if (tConsConfig.pocket) selectedWeight += rPktPlkt;
+                    if (tConsConfig.pocket) selectedWeight += parseFloat(pocketWt.toFixed(3));
+                    if (tConsConfig.plaket) selectedWeight += parseFloat(plaketWt.toFixed(3));
                     if (tConsConfig.sidePkt) selectedWeight += rSidePkt;
                     if (tConsConfig.backPkt) selectedWeight += rBackPkt;
                     if (tConsConfig.collar) selectedWeight += rCollarCuff;
                     if (tConsConfig.wastage) selectedWeight += parseFloat(mainWastageOnlyPart.toFixed(3));
+                    if (tConsConfig.byPlaketWastage) selectedWeight += parseFloat(mainByPlaketWastagePart.toFixed(3));
                     if (tConsConfig.mukpat) selectedWeight += parseFloat(mainMukpatPart.toFixed(3));
-                    if (tConsConfig.ribWastage) selectedWeight += parseFloat((isGrsActive ? globalRibWastage > 0 ? (tempTotalPicsSum > 0 ? (pics / tempTotalPicsSum) * globalRibWastage : 0) : 0 : 0).toFixed(3));
+                    if (tConsConfig.ribWastage) selectedWeight += parseFloat(mainRibWastagePart.toFixed(3));
 
                     let mainFabricRowWeight = selectedWeight;
 
@@ -3223,70 +3303,95 @@
                             totalWeightSum += rowTotalWeightRounded;
                         }
                     } else {
-                        let foldingWt = isFoldingActive ? (pics * fGm) : 0;
-                        if (isPoloActive && poloHasByPlaket) {
-                            foldingWt += totalPicsSum > 0 ? (pics / totalPicsSum) * totalByPlaketGlobal : 0;
-                        }
+                        let foldingOnlyWt = isFoldingActive ? (pics * fGm) : 0;
+                        let byPlaketWt = (isPoloActive && poloHasByPlaket && totalPicsSum > 0)
+                            ? (pics / totalPicsSum) * totalByPlaketGlobal : 0;
+                        let foldingWt = foldingOnlyWt + byPlaketWt;
 
                         let ribWt = isGrsActive ? (globalRibTotal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibTotal : 0) : (parseFloat(it.ribwt) || 0)) : 0;
-                        let pktPlktWt = isPoloActive ? ((poloHasPocket && totalPicsSum > 0 ? (pics / totalPicsSum) * totalPocketGlobal : 0) + (totalPicsSum > 0 ? (pics / totalPicsSum) * totalPlaketGlobal : 0)) : 0;
+                        let pocketWt = isPoloActive ? (poloHasPocket && totalPicsSum > 0 ? (pics / totalPicsSum) * totalPocketGlobal : 0) : 0;
+                        let plaketWt = isPoloActive ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalPlaketGlobal : 0) : 0;
+                        let pktPlktWt = pocketWt + plaketWt;
                         let sidePktWt = (isPantActive && pantHasSidePocket) ? (totalSidePocketGlobal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalSidePocketGlobal : 0) : (parseFloat(it.sidepocket) || 0)) : 0;
                         let backPktWt = (isPantActive && pantHasBackPocket) ? (totalBackPocketGlobal > 0 ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalBackPocketGlobal : 0) : (parseFloat(it.backpocket) || 0)) : 0;
                         let collarCuffWt = isPoloActive ? (totalPicsSum > 0 ? (pics / totalPicsSum) * totalCollarCuffGlobal : 0) : 0;
 
-                        let rowWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalByPlaketWastage + globalRibWastage) : 0;
+                        let layWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalWastage : 0;
+                        let byPlaketWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalByPlaketWastage : 0;
+                        let ribWastagePart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0;
                         let rowMukpatPart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalMukpat : 0;
-                        let mainWastageOnlyPart = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalRibWastage) : 0;
-                        let mainMukpatPart = totalPicsSum > 0 ? (pics / totalPicsSum) * globalMukpat : 0;
+                        let rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                        let mainWastageOnlyPart = layWastagePart;
+                        let mainByPlaketWastagePart = byPlaketWastagePart;
+                        let mainRibWastagePart = ribWastagePart;
+                        let mainMukpatPart = rowMukpatPart;
 
                         if (adjWeightValue > 0 && adjFactor > 0) {
                             if (chkBody) bodywt = roundTo50g(bodywt + bodywt * adjFactor * adjSign);
                             if (chkWastage) {
-                                let wstShare = totalPicsSum > 0 ? (pics / totalPicsSum) * (globalWastage + globalByPlaketWastage) : 0;
-                                rowWastagePart += wstShare * adjFactor * adjSign;
-                                mainWastageOnlyPart += wstShare * adjFactor * adjSign;
+                                let layShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalWastage : 0;
+                                let byPlaketShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalByPlaketWastage : 0;
+                                layWastagePart += layShare * adjFactor * adjSign;
+                                byPlaketWastagePart += byPlaketShare * adjFactor * adjSign;
+                                rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                                mainWastageOnlyPart = layWastagePart;
+                                mainByPlaketWastagePart = byPlaketWastagePart;
                             }
                             if (chkRibWastage && isGrsActive) {
-                                let rWstShare = totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0;
-                                rowWastagePart += rWstShare * adjFactor * adjSign;
-                                mainWastageOnlyPart += rWstShare * adjFactor * adjSign;
+                                ribWastagePart += (totalPicsSum > 0 ? (pics / totalPicsSum) * globalRibWastage : 0) * adjFactor * adjSign;
+                                rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
+                                mainRibWastagePart = ribWastagePart;
                             }
                             if (chkMukpat) {
                                 rowMukpatPart += rowMukpatPart * adjFactor * adjSign;
                                 mainMukpatPart += mainMukpatPart * adjFactor * adjSign;
                             }
                             if (chkRib && isGrsActive) ribWt += ribWt * adjFactor * adjSign;
-                            if (chkPocket && isPoloActive) pktPlktWt += pktPlktWt * adjFactor * adjSign;
+                            if (chkPocket && isPoloActive) pocketWt += pocketWt * adjFactor * adjSign;
+                        if (chkPocket && isPoloActive) plaketWt += plaketWt * adjFactor * adjSign;
+                        if (chkPocket && isPoloActive) pktPlktWt = pocketWt + plaketWt;
                             if (chkSidePkt && isPantActive && pantHasSidePocket) sidePktWt += sidePktWt * adjFactor * adjSign;
                             if (chkBackPkt && isPantActive && pantHasBackPocket) backPktWt += backPktWt * adjFactor * adjSign;
                             if (chkCollar && isPoloActive) collarCuffWt += collarCuffWt * adjFactor * adjSign;
                         }
 
-                        foldingWt = roundTo50g(foldingWt);
+                        foldingOnlyWt = roundTo50g(foldingOnlyWt);
+                        byPlaketWt = roundTo50g(byPlaketWt);
+                        foldingWt = foldingOnlyWt + byPlaketWt;
                         if (globalRibTotal > 0 || isGrsActive) ribWt = roundTo50g(ribWt);
-                        pktPlktWt = roundTo50g(pktPlktWt);
+                        pocketWt = roundTo50g(pocketWt);
+                        plaketWt = roundTo50g(plaketWt);
+                        pktPlktWt = pocketWt + plaketWt;
                         if (totalSidePocketGlobal > 0 || (isPantActive && pantHasSidePocket)) sidePktWt = roundTo50g(sidePktWt);
                         if (totalBackPocketGlobal > 0 || (isPantActive && pantHasBackPocket)) backPktWt = roundTo50g(backPktWt);
                         collarCuffWt = roundTo50g(collarCuffWt);
-                        rowWastagePart = roundTo50g(rowWastagePart);
+                        layWastagePart = roundTo50g(layWastagePart);
+                        byPlaketWastagePart = roundTo50g(byPlaketWastagePart);
+                        ribWastagePart = roundTo50g(ribWastagePart);
+                        rowWastagePart = layWastagePart + byPlaketWastagePart + ribWastagePart;
                         rowMukpatPart = roundTo50g(rowMukpatPart);
-                        mainWastageOnlyPart = roundTo50g(mainWastageOnlyPart);
-                        mainMukpatPart = roundTo50g(mainMukpatPart);
+                        mainWastageOnlyPart = layWastagePart;
+                        mainByPlaketWastagePart = byPlaketWastagePart;
+                        mainRibWastagePart = ribWastagePart;
+                        mainMukpatPart = rowMukpatPart;
 
                         let rowWastage = rowWastagePart + rowMukpatPart;
                         let rowTotal = bodywt + foldingWt + ribWt + pktPlktWt + sidePktWt + backPktWt + collarCuffWt + rowWastage;
                         let bCons = pics > 0 ? (bodywt / pics).toFixed(5) : "0.00000";
                         let selectedWeight = 0;
                         if (downloadTConsConfig.body) selectedWeight += bodywt;
-                        if (downloadTConsConfig.folding) selectedWeight += foldingWt;
+                        if (downloadTConsConfig.folding) selectedWeight += foldingOnlyWt;
+                        if (downloadTConsConfig.byPlaket) selectedWeight += byPlaketWt;
                         if (downloadTConsConfig.rib) selectedWeight += ribWt;
-                        if (downloadTConsConfig.pocket) selectedWeight += pktPlktWt;
+                        if (downloadTConsConfig.pocket) selectedWeight += pocketWt;
+                        if (downloadTConsConfig.plaket) selectedWeight += plaketWt;
                         if (downloadTConsConfig.sidePkt) selectedWeight += sidePktWt;
                         if (downloadTConsConfig.backPkt) selectedWeight += backPktWt;
                         if (downloadTConsConfig.collar) selectedWeight += collarCuffWt;
                         if (downloadTConsConfig.wastage) selectedWeight += mainWastageOnlyPart;
+                        if (downloadTConsConfig.byPlaketWastage) selectedWeight += mainByPlaketWastagePart;
                         if (downloadTConsConfig.mukpat) selectedWeight += mainMukpatPart;
-                        if (downloadTConsConfig.ribWastage) selectedWeight += (isGrsActive ? (pics / totalPicsSum) * globalRibWastage : 0);
+                        if (downloadTConsConfig.ribWastage) selectedWeight += mainRibWastagePart;
                         let tCons = pics > 0 ? (selectedWeight / pics).toFixed(5) : "0.00000";
 
                         rowTds.push(bodywt.toFixed(3));
